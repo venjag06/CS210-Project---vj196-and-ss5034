@@ -25,10 +25,6 @@ try:
     connection_string = f"sqlite:///{db_path}"
     engine = create_engine(connection_string)
     
-    # Test connection
-    with engine.connect() as conn:
-        pass  # Just test the connection
-    
     # Load dataframe into SQLite3 in chunks (for large files)
     table_name = "housing_listings"
     print(f"Loading {len(df)} rows into SQLite3...")
@@ -37,6 +33,9 @@ try:
     print(f"✓ Table created: '{table_name}'")
     print(f"✓ Columns: {list(df.columns)}")
     
+    # IMPORTANT: Close the engine to release database lock
+    engine.dispose()
+    
 except Exception as e:
     print(f"Error: {e}")
     import traceback
@@ -44,3 +43,33 @@ except Exception as e:
 
 if __name__ == "__main__":
     print("Housing data processing complete!")
+    
+    # Query and print data from SQLite3
+    print("\n" + "="*80)
+    print("HOUSING DATABASE CONTENTS")
+    print("="*80 + "\n")
+    
+    import sqlite3
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Get table info
+        cursor.execute("SELECT COUNT(*) FROM housing_listings")
+        total_rows = cursor.fetchone()[0]
+        print(f"Total rows in database: {total_rows}\n")
+        
+        # Get column names
+        cursor.execute("PRAGMA table_info(housing_listings)")
+        columns = [col[1] for col in cursor.fetchall()]
+        print(f"Columns: {columns}\n")
+        
+        # Print first 10 rows
+        print("First 10 rows:")
+        cursor.execute("SELECT * FROM housing_listings LIMIT 10")
+        for i, row in enumerate(cursor.fetchall(), 1):
+            print(f"{i}: {row}")
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error reading database: {e}")
