@@ -1,0 +1,32 @@
+# Large data files
+*.csv
+*.xlsx
+*.xls
+housing.csv
+
+# Machine learning models
+*.pkl
+*.h5
+*.pt
+*.pth
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.pyc
+__pycache__/
+
+# OS
+.DS_Store
+*.swp
+*.swo
+
+# Data directories
+data/
+datasets/
+tmp/
