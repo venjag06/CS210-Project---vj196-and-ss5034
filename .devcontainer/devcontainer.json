@@ -1,0 +1,41 @@
+{
+  "name": "CS210 Rental Fairness",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bullseye",
+  "forwardPorts": [5432],
+  "portsAttributes": {
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "sudo service postgresql start",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "ms-python.black-formatter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "jupyter.askForKernelRestart": false,
+        "sqltools.connections": [
+          {
+            "name": "rental_fairness (local)",
+            "driver": "PostgreSQL",
+            "server": "localhost",
+            "port": 5432,
+            "database": "rental_fairness",
+            "username": "vscode",
+            "password": "vscode"
+          }
+        ]
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}
