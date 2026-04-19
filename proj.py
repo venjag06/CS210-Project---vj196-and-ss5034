@@ -1,16 +1,21 @@
-import kagglehub 
+import pandas as pd
+import os
+import kagglehub
 from kagglehub import KaggleDatasetAdapter
 
-file_path = "data.csv"  # Specify the path to your dataset file within the Kaggle dataset
+# Set Kaggle API credentials from environment variable (if provided)
+# Otherwise, kagglehub will automatically use ~/.kaggle/kaggle.json
+if "KAGGLE_API_KEY" in os.environ:
+    os.environ["KAGGLE_API_KEY"] = os.environ["KAGGLE_API_KEY"]
 
-# Load the latest version
-df = kagglehub.load_dataset(
-  KaggleDatasetAdapter.PANDAS,
-  "austinreese/usa-housing-listings",
-  file_path)
+# Load the dataset
+dataset_path = kagglehub.dataset_download("austinreese/usa-housing-listings")
+print(f"Dataset downloaded to: {dataset_path}")
 
-print("First 5 records:", df.head())
-
+df = pd.read_csv(dataset_path + "/housing.csv")  
+print(df.head())
+print("successs")
 if __name__ == "__main__":
     print("Hello, World!")
+
 
