@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import kagglehub
 from sqlalchemy import create_engine
+from census_lookup import CensusLookup
 
 # Set Kaggle API credentials from environment variable (if provided)
 # Otherwise, kagglehub will automatically use ~/.kaggle/kaggle.json
@@ -10,16 +11,30 @@ if "KAGGLE_API_KEY" in os.environ:
 
 # Load the dataset
 dataset_path = kagglehub.dataset_download("austinreese/usa-housing-listings")
+
 print(f"Dataset downloaded to: {dataset_path}")
 
 df = pd.read_csv(dataset_path + "/housing.csv")  
 print(df.head())
 print(f"Loaded {len(df)} rows")
 
+lookup = CensusLookup(
+    variables=["B19013_001E", "B17001_001E", "B23025_005E", "B15003_022E", "B25064_001E"],  # Median household income, Total population, # of peopel with bachelors, median rent
+)
+
+#cities [# Median household income, Total population, # of peopel with bachelors, median rent]
+#housing ['id', 'region', 'price', 'type', 'sqfeet', 'beds', 'baths', 'state']
+
+
+
+
+
+
+
+"""
 # SQLite3 Database (no server needed!)
 # Database file will be created in your project directory
 db_path = os.getenv("DB_PATH", "housing.db")
-
 try:
     # Create SQLite3 connection
     connection_string = f"sqlite:///{db_path}"
@@ -27,11 +42,9 @@ try:
     
     # Load dataframe into SQLite3 in chunks (for large files)
     table_name = "housing_listings"
-    print(f"Loading {len(df)} rows into SQLite3...")
+    print(f"Loading rows into SQLite3...")
     df.to_sql(table_name, engine, if_exists='replace', index=False, chunksize=10000)
     print(f"✓ Successfully loaded {len(df)} rows into SQLite3 database '{db_path}'")
-    print(f"✓ Table created: '{table_name}'")
-    print(f"✓ Columns: {list(df.columns)}")
     
     # IMPORTANT: Close the engine to release database lock
     engine.dispose()
@@ -73,3 +86,4 @@ if __name__ == "__main__":
         conn.close()
     except Exception as e:
         print(f"Error reading database: {e}")
+        """
