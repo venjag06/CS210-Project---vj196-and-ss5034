@@ -4,6 +4,12 @@
 *.xls
 housing.csv
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+housing.db
+
 # Machine learning models
 *.pkl
 *.h5
