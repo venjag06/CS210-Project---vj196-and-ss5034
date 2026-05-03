@@ -5,9 +5,9 @@ import os
 DB_PATH = "housing.db"
 
 
-# ─────────────────────────────────────────────
-# Helper: check if a table already exists in DB
-# ─────────────────────────────────────────────
+# check if a table already exists in the housing.db sqllite3 database, 
+# if it does then load it instead of re-downloading and processing the data from scratch
+# this saves a lot of computation 
 def table_exists(db_path: str, table_name: str) -> bool:
     if not os.path.exists(db_path):
         return False
@@ -22,9 +22,7 @@ def table_exists(db_path: str, table_name: str) -> bool:
     return result is not None
 
 
-# ─────────────────────────────────────────────
-# STEP 5: Load housing + cities from DB
-# ─────────────────────────────────────────────
+# Load housing + cities from DB
 conn = sqlite3.connect(DB_PATH)
 housing = pd.read_sql("SELECT * FROM housing", conn)
 cities  = pd.read_sql("SELECT * FROM cities",  conn)

@@ -7,27 +7,14 @@ import kagglehub
 from difflib import get_close_matches
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv() 
 
 DB_PATH = "housing.db"
-CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
+CENSUS_API_KEY = os.getenv("CENSUS_API_KEY") #cant be putting my api key on a public repo lol
 
-# State abbreviation → FIPS code (needed for Census API)
-STATE_FIPS = {
-    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
-    'CO': '08', 'CT': '09', 'DE': '10', 'DC': '11', 'FL': '12',
-    'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
-    'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23',
-    'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
-    'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33',
-    'NJ': '34', 'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38',
-    'OH': '39', 'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44',
-    'SC': '45', 'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49',
-    'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55',
-    'WY': '56',
-}
-
-# Helper: check if a table already exists in the DB
+# check if a table already exists in the housing.db sqllite3 database, 
+# if it does then load it instead of re-downloading and processing the data from scratch
+# this saves a lot of computation 
 def table_exists(db_path: str, table_name: str) -> bool:
     if not os.path.exists(db_path):
         return False
@@ -38,17 +25,21 @@ def table_exists(db_path: str, table_name: str) -> bool:
     conn.close()
     return result is not None
 
-# Common abbreviation expansions
-ABBREV = {
-    r'\bft\b':    'fort',
-    r'\bst\b':    'saint',
-    r'\bmt\b':    'mount',
-    r'\bpt\b':    'point',
-    r'\bpk\b':    'park',
-}
 
+
+#trying to normalize and clean names before matching in census data
 def normalize(text: str) -> str:
-    """Lowercase, remove periods, expand abbreviations, strip trailing place-type words."""
+    text = text.split(",")[0]  # Remove ", California" suffix
+    text = re.sub(r'\b(city|town|village|borough|cdp|municipality|township)\b', '', text, flags=re.IGNORECASE)
+    # common abbreviation expansions (e.g. "ft" → "fort", "st" → "saint") to improve matching accuracy 
+    ABBREV = {
+        r'\bft\b':    'fort',
+        r'\bst\b':    'saint',
+        r'\bmt\b':    'mount',
+        r'\bpt\b':    'point',
+        r'\bpk\b':    'park',
+    }
+    # Lowercase, remove periods, expand abbreviations, strip trailing place-type words
     text = text.lower().replace('.', '')
     for pattern, replacement in ABBREV.items():
         text = re.sub(pattern, replacement, text)
@@ -56,12 +47,6 @@ def normalize(text: str) -> str:
     text = re.sub(r'\b(city|metro|area)\b', '', text)
     return text.strip()
 
-# Helper: clean a Census place name for matching
-# e.g. "Los Angeles city, California" → "los angeles"
-def clean_census_name(name: str) -> str:
-    name = name.split(",")[0]  # Remove ", California" suffix
-    name = re.sub(r'\b(city|town|village|borough|cdp|municipality|township)\b', '', name, flags=re.IGNORECASE)
-    return normalize(name)
 
 # Helper: validate that a region keyword is a genuine whole-word match
 # in the census name — catches false matches like "reno" inside "fresno"
@@ -73,45 +58,50 @@ def is_valid_match(region_key: str, matched_clean_name: str) -> bool:
     return bool(re.search(r'\b' + re.escape(key) + r'\b', name))
 
 
-# ─────────────────────────────────────────────
-# STEP 1 & 2: Load HOUSING table
-# Skip if already saved to housing.db
-# ─────────────────────────────────────────────
+#loading housing table 
+
 if table_exists(DB_PATH, "housing"):
-    print("✓ 'housing' table already exists — loading from DB")
+# if the table already exists in the database, load it instead of re-downloading and processing the data from scratch
+    print("'housing' table already exists — loading from DB")
     conn = sqlite3.connect(DB_PATH)
     housing = pd.read_sql("SELECT * FROM housing", conn)
     conn.close()
     print(f"  Loaded {len(housing)} rows")
 else:
     print("Downloading Kaggle dataset...")
-    dataset_path = kagglehub.dataset_download("austinreese/usa-housing-listings")
+    dataset_path = kagglehub.dataset_download("austinreese/usa-housing-listings") #this is the dataset we are using
     raw_df = pd.read_csv(
         dataset_path + "/housing.csv",
         usecols=["id", "region", "price", "type", "sqfeet", "beds", "baths", "state"]
     )
+    #loading it into a pandas dataframe with just the columns we need. so we don't have to drop them later. 
     print(f"Loaded {len(raw_df)} raw rows")
 
+    #making a new dataframe called housing that we will clean and process, so we can always refer back to the raw_df if we need to
     housing = raw_df.copy()
+    #dropping any rows with missing values in critical columns
     housing.dropna(subset=["price", "sqfeet", "beds", "baths", "state"], inplace=True)
+    #trying to avoid extreme outliers by only considering housings between $100 and $10,000 per month
     housing = housing[(housing["price"] >= 100) & (housing["price"] <= 10_000)]
+    #trying to avoid extreme outliers by only considering housings between 100 and 10,000 square feet
     housing = housing[(housing["sqfeet"] >= 100) & (housing["sqfeet"] <= 10_000)]
+    #dropping duplicate listings based on the unique 'id' column provided in the dataset
     housing.drop_duplicates(subset=["id"], inplace=True)
+    #cleaning the 'state' and 'region' column by stripping whitespace and converting to uppercase for consistency (ex. "ca" becomes "CA")
     housing["state"]  = housing["state"].str.strip().str.upper()
     housing["region"] = housing["region"].str.strip().str.lower()
     housing.reset_index(drop=True, inplace=True)
-
+    
+    # connect to database and save the cleaned housing dataframe as a new table called 'housing'
     conn = sqlite3.connect(DB_PATH)
     housing.to_sql("housing", conn, if_exists="replace", index=False)
     conn.close()
-    print(f"✓ 'housing' table saved — {len(housing)} rows")
+    print(f"'housing' table saved — {len(housing)} rows")
 
 print(housing.head())
 
 
-# ─────────────────────────────────────────────
-# STEP 3: Get unique city/state pairs
-# ─────────────────────────────────────────────
+#getting unique city/state pairs
 unique_locations = (
     housing[["region", "state"]]
     .drop_duplicates()
@@ -120,16 +110,17 @@ unique_locations = (
 print(f"\nUnique city/state combos: {len(unique_locations)}")
 states_needed = unique_locations["state"].unique().tolist()
 print(f"States needed: {len(states_needed)}")
+# once we get the unique city/state pairs, we can use that to query the census api for the relevant cities and states, 
+# instead of querying for every single listing in the housing data which would be very inefficient 
+# and could get us rate limited by the census api.
 
 
-# ─────────────────────────────────────────────
-# STEP 4: Fetch Census ACS data via API
+#Fetch Census ACS data via API
 # Skip if 'cities' table already exists in DB
-#
 # For each state, we call the Census API once
 # to get all places, then match to our regions.
 #
-# ACS variables:
+# ACS variables from their documentation:
 #   B19013_001E → Median household income
 #   B01003_001E → Total population
 #   B23025_005E → Unemployed civilians
@@ -138,7 +129,22 @@ print(f"States needed: {len(states_needed)}")
 # ─────────────────────────────────────────────
 
 def fetch_census_for_state(state_abbr: str) -> pd.DataFrame:
-    """Call Census API and return a DataFrame of all places in that state."""
+    #Call Census API and return a DataFrame of all places in that state.
+
+    # State abbreviation to FIPS code, needed for Census API querying
+    STATE_FIPS = {
+        'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+        'CO': '08', 'CT': '09', 'DE': '10', 'DC': '11', 'FL': '12',
+        'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
+        'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23',
+        'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
+        'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33',
+        'NJ': '34', 'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38',
+        'OH': '39', 'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44',
+        'SC': '45', 'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49',
+        'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55',
+        'WY': '56',
+    }
     fips = STATE_FIPS.get(state_abbr)
     if not fips:
         return pd.DataFrame()
@@ -149,8 +155,9 @@ def fetch_census_for_state(state_abbr: str) -> pd.DataFrame:
         "for": "place:*",
         "in":  f"state:{fips}",
         "key": CENSUS_API_KEY,
-    }
+    } #setting up request headers to query api
     try:
+        #making the request and parsing the response into DataFrame and returning that df
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
@@ -165,13 +172,18 @@ def fetch_census_for_state(state_abbr: str) -> pd.DataFrame:
 
 
 def build_cities_df(unique_locations: pd.DataFrame) -> pd.DataFrame:
-    states = unique_locations["state"].unique().tolist()
+    #using the unique city/state pairs to get a list of unique states that we need to query the census api for
+    states = unique_locations["state"].unique().tolist() 
     print(f"\nFetching Census data for {len(states)} states via API...")
 
     all_census = []
+    """for each state we call the census api to get all the cities in that state, and then we will match those cities to the regions 
+    in our housing data using fuzzy matching and regex. this way we only call the census api once per state, 
+    instead of once per listing which would be very inefficient and could get us rate limited by the census api."""
+
     for state in states:
         print(f"  Fetching {state}...", end=" ")
-        df = fetch_census_for_state(state)
+        df = fetch_census_for_state(state) #fetch census data for that state
         if not df.empty:
             print(f"{len(df)} places found")
             all_census.append(df)
@@ -182,10 +194,12 @@ def build_cities_df(unique_locations: pd.DataFrame) -> pd.DataFrame:
         print("No Census data retrieved!")
         return pd.DataFrame()
 
-    census_all = pd.concat(all_census, ignore_index=True)
+    census_all = pd.concat(all_census, ignore_index=True) 
+    #census_all is a dataframe of all the census data we retrieved for all the states we needed, 
+    # with columns for median income, population, unemployed count, bachelors count, median rent, and state abbreviation
 
-    # Clean Census place names for matching
-    census_all["clean_name"] = census_all["NAME"].apply(clean_census_name)
+    # Clean Census place names for matching using the normalize function from above
+    census_all["clean_name"] = census_all["NAME"].apply(normalize)
 
     # Match each Craigslist region to the closest Census place name
     census_rows = []
@@ -214,17 +228,17 @@ def build_cities_df(unique_locations: pd.DataFrame) -> pd.DataFrame:
         keys_to_try = dict.fromkeys(all_parts)  # preserves order, dedupes
 
         matched_name = None
-        matched_key  = None
 
         # Layer 1: fuzzy match + word-boundary validation
         for key in keys_to_try:
+            #using the difflib get_close_matches function to find the closest match for the region key
+            # in the list of census place names, with a cutoff of 0.6 for similarity
             hits = get_close_matches(normalize(key), [normalize(c) for c in candidates], n=1, cutoff=0.6)
             if hits:
                 norm_to_orig = {normalize(c): c for c in candidates}
                 orig = norm_to_orig.get(hits[0])
                 if orig and is_valid_match(key, orig):
                     matched_name = orig
-                    matched_key  = key
                     break
 
         # Layer 2: regex substring fallback
@@ -236,7 +250,6 @@ def build_cities_df(unique_locations: pd.DataFrame) -> pd.DataFrame:
                 for candidate in candidates:
                     if re.search(pattern, normalize(candidate)):
                         matched_name = candidate
-                        matched_key  = key
                         break
                 if matched_name:
                     break
@@ -264,13 +277,15 @@ def build_cities_df(unique_locations: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_cols:
         cities[col] = pd.to_numeric(cities[col], errors="coerce")
 
+    # Drop rows where we couldn't get valid numeric data for median income, since that's a critical feature
     cities.dropna(subset=["median_income"], inplace=True)
     cities.reset_index(drop=True, inplace=True)
     return cities
 
 
+#if cities table already exists load from db, if not then build the dataframe and load it into our sql database as a new table called 'cities' for future use so we don't have to call the census api again and do all the processing again next time we run the code. this saves a lot of time and computation.
 if table_exists(DB_PATH, "cities"):
-    print("\n✓ 'cities' table already exists — loading from DB")
+    print("\n'cities' table already exists — loading from DB")
     conn = sqlite3.connect(DB_PATH)
     cities = pd.read_sql("SELECT * FROM cities", conn)
     conn.close()
@@ -283,4 +298,4 @@ else:
     print(f"✓ 'cities' table saved — {len(cities)} rows")
 
 print(cities.head())
-print("\nDone!")
+print("\nloaded")
