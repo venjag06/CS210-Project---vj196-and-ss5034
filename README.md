@@ -23,7 +23,7 @@ City-level demographic data fetched via the Census REST API for every city prese
 ## Project Structure
 
 ```
-├── load_data.py           # Downloads Kaggle data + fetches Census API data → housing.db
+├── dataloader.py          # Downloads Kaggle data + fetches Census API data → housing.db
 ├── feature_engineering.py # Joins housing + cities, engineers new features → merged table
 ├── eda.py                 # Generates exploratory visualizations → eda_plots/
 ├── linear_regression.py   # Trains Linear Regression model → models/
@@ -31,7 +31,7 @@ City-level demographic data fetched via the Census REST API for every city prese
 ├── predict.py             # CLI tool: enter a property, get predicted fair price
 ├── models/                # Saved model files (generated after training)
 ├── eda_plots/             # Output charts (generated after running eda.py)
-├── housing.db             # SQLite database (generated after running load_data.py)
+├── housing.db             # SQLite database (generated after running dataloader.py)
 └── .env                   # API keys — never committed to GitHub
 ```
 
