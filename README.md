@@ -60,7 +60,7 @@ Run the scripts in order. Each one caches its output to `housing.db`, so re-runn
 
 ### Step 1 — Load data
 ```bash
-python load_data.py
+python dataloader.py
 ```
 Downloads the Kaggle housing dataset and fetches Census data for every city in the dataset. Saves two tables to `housing.db`: `housing` (~324k rows after cleaning) and `cities` (330 cities matched to Census data).
 
