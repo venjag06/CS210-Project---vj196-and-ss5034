@@ -157,3 +157,13 @@ print("\n── Sample predictions ───────────────
 print(results_df[["region", "state", "price", "predicted_price_lr",
                    "pct_diff_lr"]].head(10).to_string(index=False))
 print("\nDone")
+
+# for prediction
+import joblib, json
+os.makedirs("models", exist_ok=True)
+joblib.dump(model,  "models/lr_model.joblib")
+joblib.dump(scaler, "models/lr_scaler.joblib")
+with open("models/feature_cols.json", "w") as f:
+    json.dump(X.columns.tolist(), f)
+print("\n✓ Saved: models/lr_model.joblib, models/lr_scaler.joblib, models/feature_cols.json")
+print("\nDone!")

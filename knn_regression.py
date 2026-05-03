@@ -173,3 +173,10 @@ print(test_rows[["region", "state", "price", "predicted_price_knn",
                   "pct_diff_knn"]].head(10).to_string(index=False))
 print("\nDone")
 
+# for prediction
+import joblib
+os.makedirs("models", exist_ok=True)
+joblib.dump(knn_model, "models/knn_model.joblib")
+joblib.dump(scaler,    "models/knn_scaler.joblib")
+print("\n✓ Saved: models/knn_model.joblib, models/knn_scaler.joblib")
+print("\nDone!")
