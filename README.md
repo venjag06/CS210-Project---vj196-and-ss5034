@@ -24,7 +24,7 @@ City-level demographic data fetched via the Census REST API for every city prese
 
 ```
 ├── dataloader.py          # Downloads Kaggle data + fetches Census API data → housing.db
-├── feature_engineering.py # Joins housing + cities, engineers new features → merged table
+├── featureengineering.py # Joins housing + cities, engineers new features → merged table
 ├── eda.py                 # Generates exploratory visualizations → eda_plots/
 ├── linear_regression.py   # Trains Linear Regression model → models/
 ├── knn_regression.py      # Trains KNN Regression model → models/
@@ -66,7 +66,7 @@ Downloads the Kaggle housing dataset and fetches Census data for every city in t
 
 ### Step 2 — Feature engineering
 ```bash
-python feature_engineering.py
+python featureengineering.py
 ```
 Joins `housing` and `cities` on region + state, then engineers four new features:
 
@@ -111,7 +111,7 @@ The target variable is `log(price)` rather than raw price to correct for the rig
 ```bash
 python predict.py
 ```
-Interactive CLI that asks for city, state, property details, and an optional listed price, then outputs predicted fair prices from both models and a verdict.
+Interactive command line interface that asks for city, state, property details, and an optional listed price, then outputs predicted fair prices from both models and a verdict.
 
 **Example output:**
 ```
@@ -134,31 +134,3 @@ Interactive CLI that asks for city, state, property details, and an optional lis
 ══════════════════════════════════════════════════
 ```
 
----
-
-## Model Results
-
-| Model | RMSE | R² |
-|---|---|---|
-| Linear Regression | ~$350 | ~0.45 |
-| KNN (k optimized via CV) | $268 | 0.82 |
-
-KNN outperforms Linear Regression on this dataset because rental pricing has non-linear relationships — the effect of adding a bedroom on price varies significantly by city and price tier, which KNN handles naturally by finding locally similar listings.
-
----
-
-## Key Findings from EDA
-
-- Median US rent in the dataset: **$1,010/month**
-- Most expensive states: **HI, MA, CA**
-- Most affordable states: **KS, OK, MO**
-- Strongest predictors of price: `price_per_sqft` (r=0.59), `median_income` (r=0.44), `sqfeet` (r=0.39)
-- Unemployment rate and `median_rent_census` showed weak correlation with individual listing prices, likely because city-level averages don't capture within-city variation
-
----
-
-## Limitations
-
-- **City-level demographics only** — we don't have neighborhood, zip code, floor number, building amenities, or proximity to transit. These factors can explain large price differences within a single city.
-- **Data age** — the Kaggle dataset is a historical Craigslist snapshot. Rents in many markets have changed significantly since it was collected.
-- **City coverage** — 330 of ~427 unique Craigslist regions were successfully matched to Census data (77%). Unmatched cities are excluded from the model.
