@@ -49,7 +49,8 @@ pip install pandas scikit-learn matplotlib seaborn kagglehub requests joblib pyt
 CENSUS_API_KEY=your_key_here
 ```
 Get a free key at [api.census.gov/data/key_signup.html](https://api.census.gov/data/key_signup.html).
-
+**Alternatively, if you are a TA for my course, I have provided an API key on the first page of my project report. 
+**
 **3. Set up Kaggle credentials** so `kagglehub` can download the dataset. Follow the [Kaggle API docs](https://www.kaggle.com/docs/api) to place your `kaggle.json` in `~/.kaggle/`.
 
 ---
